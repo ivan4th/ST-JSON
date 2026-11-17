@@ -303,7 +303,8 @@ Raises a json-type-error when the type is wrong."
   (with-standard-io-syntax
     (let ((*print-pretty* pretty)
           (*print-right-margin* 80))
-      (write-json-element element stream)
+      (pprint-logical-block (stream nil)
+        (write-json-element element stream))
       (values))))
 
 (defgeneric write-json-element (element stream)
@@ -369,7 +370,9 @@ Raises a json-type-error when the type is wrong."
   (write element :stream stream))
 
 (defmethod write-json-element ((element real) stream)
-  (format stream "~,,,,,,'eE" element))
+  (if (= element (floor element))
+      (write (floor element) :stream stream)
+      (format stream "~,,,,,,'eE" element)))
 
 (defmethod write-json-element ((element hash-table) stream)
   (declare #.*optimize*)
@@ -385,39 +388,39 @@ Raises a json-type-error when the type is wrong."
 
 (defmethod write-json-element ((element jso) stream)
   (declare #.*optimize*)
-  (pprint-logical-block (stream nil)
-    (write-char #\{ stream)
-    (when (jso-alist element)
-      (pprint-indent :block 2 stream)
-      (pprint-newline :linear stream)
+  (write-char #\{ stream)
+  (when (jso-alist element)
+    (pprint-indent :block 2 stream)
+    (pprint-newline :mandatory stream)
+    (pprint-logical-block (stream nil)
       (loop :for (key . val) :in (jso-alist element)
             :for first := t :then nil
             :unless first
               :do (write-sep #\, stream)
-              :and :do (pprint-newline :linear stream)
+              :and :do (pprint-newline :mandatory stream)
             :end
             :do (write-json-element key stream)
             :do (write-sep #\: stream)
-            :do (write-json-element val stream))
-      (pprint-indent :block 0 stream)
-      (pprint-newline :linear stream))
-    (write-char #\} stream)))
+            :do (write-json-element val stream)))
+    (pprint-indent :block 0 stream)
+    (pprint-newline :mandatory stream))
+  (write-char #\} stream))
 
 (defmethod write-json-element ((element list) stream)
   (declare #.*optimize*)
-  (pprint-logical-block (stream nil)
-    (write-char #\[ stream)
-    (when element
-      (pprint-indent :block 2 stream)
-      (pprint-newline :linear stream)
+  (write-char #\[ stream)
+  (when element
+    (pprint-indent :block 2 stream)
+    (pprint-newline :mandatory stream)
+    (pprint-logical-block (stream nil)
       (let ((first t))
         (dolist (part element)
           (cond (first
                  (setf first nil))
                 (t
                  (write-sep #\, stream)
-                 (pprint-newline :linear stream)))
-          (write-json-element part stream)))
-      (pprint-indent :block 0 stream)
-      (pprint-newline :linear stream)
-      (write-char #\] stream))))
+                 (pprint-newline :mandatory stream)))
+          (write-json-element part stream))))
+    (pprint-indent :block 0 stream)
+    (pprint-newline :mandatory stream))
+  (write-char #\] stream))
